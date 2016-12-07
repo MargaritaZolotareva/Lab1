@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE hibernate-mapping PUBLIC "-//Hibernate/Hibernate Mapping DTD 3.0//EN" "http://www.hibernate.org/dtd/hibernate-mapping-3.0.dtd">
+<!-- Generated Nov 14, 2016 12:02:31 AM by Hibernate Tools 4.3.1 -->
+<hibernate-mapping>
+  <class catalog="students" name="com.springapp.entities.StudentsAndClasses" table="studentsandclasses">
+    <id name="studentClassId" type="int">
+      <column name="StudentClassID"/>
+      <generator class="assigned"/>
+    </id>
+    <property name="classId" type="java.lang.Integer">
+      <column name="ClassID"/>
+    </property>
+    <property name="studentId" type="java.lang.Integer">
+      <column name="StudentID"/>
+    </property>
+    <property name="grade" type="string">
+      <column length="10" name="Grade"/>
+    </property>
+  </class>
+</hibernate-mapping>

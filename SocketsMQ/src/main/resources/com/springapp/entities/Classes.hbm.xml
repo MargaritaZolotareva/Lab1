@@ -1,0 +1,42 @@
+<?xml version="1.0"?>
+<!DOCTYPE hibernate-mapping PUBLIC "-//Hibernate/Hibernate Mapping DTD 3.0//EN"
+"http://www.hibernate.org/dtd/hibernate-mapping-3.0.dtd">
+<!-- Generated Nov 14, 2016 12:02:31 AM by Hibernate Tools 4.3.1 -->
+<hibernate-mapping>
+    <class name="com.springapp.entities.Classes" table="classes" catalog="students">
+        <id name="classId" type="int">
+            <column name="ClassID" />
+            <generator class="assigned"></generator>
+        </id>
+        <property name="className" type="string">
+            <column name="ClassName" length="45" />
+        </property>
+        <property name="departmentId" type="java.lang.Integer">
+            <column name="DepartmentID" />
+        </property>
+        <property name="sectionNum" type="java.lang.Integer">
+            <column name="SectionNum" />
+        </property>
+        <property name="instructorId" type="java.lang.Integer">
+            <column name="InstructorID" />
+        </property>
+        <property name="term" type="string">
+            <column name="Term" length="45" />
+        </property>
+        <property name="units" type="string">
+            <column name="Units" length="45" />
+        </property>
+        <property name="year" type="java.lang.Integer">
+            <column name="Year" />
+        </property>
+        <property name="location" type="string">
+            <column name="Location" length="45" />
+        </property>
+        <property name="daysAndTimes" type="string">
+            <column name="DaysAndTimes" length="45" />
+        </property>
+        <property name="notes" type="string">
+            <column name="Notes" length="45" />
+        </property>
+    </class>
+</hibernate-mapping>

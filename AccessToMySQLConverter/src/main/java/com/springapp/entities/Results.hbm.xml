@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE hibernate-mapping PUBLIC "-//Hibernate/Hibernate Mapping DTD 3.0//EN" "http://www.hibernate.org/dtd/hibernate-mapping-3.0.dtd">
+<!-- Generated Nov 13, 2016 9:10:34 PM by Hibernate Tools 4.3.1 -->
+<hibernate-mapping>
+    <class catalog="students" name="com.springapp.entities.Results" optimistic-lock="version" table="results">
+        <id name="resultsId" type="int">
+            <column name="ResultsID"/>
+            <generator class="assigned" />
+        </id>
+        <property name="studentId" type="int">
+            <column length="45" name="StudentID"/>
+        </property>
+        <property name="assignmentId" type="int">
+            <column length="45" name="AssignmentID"/>
+        </property>
+        <property name="score" type="int">
+            <column length="45" name="Score"/>
+        </property>
+        <property name="late" type="java.lang.Boolean">
+            <column name="Late"/>
+        </property>
+    </class>
+</hibernate-mapping>

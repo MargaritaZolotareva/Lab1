@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE hibernate-mapping PUBLIC "-//Hibernate/Hibernate Mapping DTD 3.0//EN" "http://www.hibernate.org/dtd/hibernate-mapping-3.0.dtd">
+<!-- Generated Nov 13, 2016 9:10:34 PM by Hibernate Tools 4.3.1 -->
+<hibernate-mapping>
+    <class catalog="students" name="com.springapp.entities.Instructors" optimistic-lock="version" table="instructors">
+        <id name="instructorId" type="int">
+            <column name="InstructorID"/>
+            <generator class="assigned" />
+        </id>
+        <property name="instructor" type="string">
+            <column length="45" name="Instructor"/>
+        </property>
+        <property name="emailName" type="string">
+            <column length="45" name="EmailName"/>
+        </property>
+        <property name="phoneNumber" type="string">
+            <column length="45" name="PhoneNumber"/>
+        </property>
+        <property name="extension" type="string">
+            <column length="45" name="Extension"/>
+        </property>
+    </class>
+</hibernate-mapping>
