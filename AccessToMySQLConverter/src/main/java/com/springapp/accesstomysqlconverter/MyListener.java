@@ -6,15 +6,16 @@
 package com.springapp.accesstomysqlconverter;
 
 import static com.springapp.accesstomysqlconverter.MainForm.cipher;
+import com.springapp.entities.Assignments;
+import com.springapp.entities.Classes;
+import com.springapp.entities.Departments;
+import com.springapp.entities.Instructors;
+import com.springapp.entities.Results;
 import com.springapp.entities.Students;
-import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
-import java.io.IOException;
-import java.io.ObjectInputStream;
+import com.springapp.entities.StudentsAndClasses;
+import com.springapp.helpers.DataMethodHelper;
 import java.util.logging.Level;
 import java.util.logging.Logger;
-import java.util.zip.DataFormatException;
-import java.util.zip.Inflater;
 import javax.crypto.Cipher;
 import javax.crypto.SecretKey;
 import javax.crypto.spec.SecretKeySpec;
@@ -39,23 +40,37 @@ public class MyListener implements MessageListener {
         try {
             TextMessage msg = (TextMessage) m;
             SecretKey originalKey = new SecretKeySpec(key, 0, key.length, "AES");
-            Object obj = deserialize(decompress(decrypt(m.toString().getBytes(), originalKey)));
+            Object obj = DataMethodHelper.deserialize(DataMethodHelper.decompress(decrypt(m.toString().getBytes(), originalKey)));
             Class objClass = obj.getClass();
             Transaction tx = session.beginTransaction();
             switch (objClass.toString()) {
                 case "Students":
+                    Students student = (Students) obj;
+                    session.save(student);
                     break;
                 case "StudentsAndClasses":
+                    StudentsAndClasses studentAndClass = (StudentsAndClasses) obj;
+                    session.save(studentAndClass);
                     break;
                 case "Classes":
+                    Classes studentsClass = (Classes) obj;
+                    session.save(studentsClass);
                     break;
                 case "Results":
+                    Results result = (Results) obj;
+                    session.save(result);
                     break;
                 case "Assignments":
+                    Assignments assignment = (Assignments) obj;
+                    session.save(assignment);
                     break;
                 case "Departments":
+                    Departments department = (Departments) obj;
+                    session.save(department);
                     break;
                 case "Instructors":
+                    Instructors instructor = (Instructors) obj;
+                    session.save(instructor);
                     break;
             }
 
@@ -67,7 +82,7 @@ public class MyListener implements MessageListener {
             Logger.getLogger(MyListener.class.getName()).log(Level.SEVERE, null, ex);
         }
     }
-
+    
     public static byte[] decrypt(byte[] dataBytes, SecretKey secretKey)
             throws Exception {
         java.util.Base64.Decoder decoder = java.util.Base64.getDecoder();
@@ -75,27 +90,5 @@ public class MyListener implements MessageListener {
         cipher.init(Cipher.DECRYPT_MODE, secretKey);
         byte[] decryptedByte = cipher.doFinal(encryptedTextByte);
         return decryptedByte;
-    }
-
-    public static byte[] decompress(byte[] data) throws IOException, DataFormatException {
-        Inflater inflater = new Inflater();
-        inflater.setInput(data);
-        ByteArrayOutputStream outputStream = new ByteArrayOutputStream(data.length);
-        byte[] buffer = new byte[1024];
-        while (!inflater.finished()) {
-            int count = inflater.inflate(buffer);
-            outputStream.write(buffer, 0, count);
-        }
-        outputStream.close();
-        byte[] output = outputStream.toByteArray();
-        return output;
-    }
-
-    public static Object deserialize(byte[] bytes) throws IOException, ClassNotFoundException {
-        try (ByteArrayInputStream b = new ByteArrayInputStream(bytes)) {
-            try (ObjectInputStream o = new ObjectInputStream(b)) {
-                return o.readObject();
-            }
-        }
     }
 }

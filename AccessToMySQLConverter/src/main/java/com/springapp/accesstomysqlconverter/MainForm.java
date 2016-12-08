@@ -12,29 +12,22 @@ import com.springapp.entities.Instructors;
 import com.springapp.entities.Results;
 import com.springapp.entities.Students;
 import com.springapp.entities.StudentsAndClasses;
-import static com.sun.xml.messaging.saaj.util.Base64.base64Decode;
-import java.io.BufferedReader;
+import com.springapp.helpers.EntityHelper;
+import com.springapp.helpers.ExportHelper;
 import java.io.BufferedWriter;
 import java.io.DataOutputStream;
-import java.io.FileOutputStream;
 import java.io.IOException;
-import java.io.InputStream;
-import java.io.InputStreamReader;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.io.OutputStream;
 import java.io.OutputStreamWriter;
 import java.net.*;
 import java.security.GeneralSecurityException;
-import java.security.KeyFactory;
 import java.security.KeyPair;
 import java.security.KeyPairGenerator;
 import java.security.NoSuchAlgorithmException;
 import java.security.PrivateKey;
 import java.security.PublicKey;
-import java.security.spec.EncodedKeySpec;
-import java.security.spec.PKCS8EncodedKeySpec;
-import java.security.spec.X509EncodedKeySpec;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.PreparedStatement;
@@ -42,9 +35,7 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.HashSet;
-import java.util.Hashtable;
 import java.util.List;
 import java.util.Properties;
 import java.util.logging.Level;
@@ -57,12 +48,6 @@ import javax.naming.Context;
 import javax.naming.InitialContext;
 import javax.net.ssl.SSLSocket;
 import javax.net.ssl.SSLSocketFactory;
-import org.apache.commons.codec.binary.Base64;
-import org.apache.poi.hssf.usermodel.HSSFWorkbook;
-import org.apache.poi.ss.usermodel.Cell;
-import org.apache.poi.ss.usermodel.Row;
-import org.apache.poi.ss.usermodel.Sheet;
-import org.apache.poi.ss.usermodel.Workbook;
 import static org.eclipse.persistence.internal.oxm.conversion.Base64.base64Encode;
 import org.hibernate.Session;
 import org.hibernate.SessionFactory;
@@ -191,18 +176,18 @@ public class MainForm extends javax.swing.JFrame {
 
     private void convertButtonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_convertButtonActionPerformed
         try {
-            Connection conn = DriverManager.getConnection("jdbc:ucanaccess://C:/Users/Margarita/Desktop/Students.accdb");
+            Connection conn = DriverManager.getConnection("jdbc:ucanaccess://C:/Users/user/Desktop/Students.accdb");
             Statement s = conn.createStatement();
             ResultSet rs = s.executeQuery("SELECT * FROM Denormalized");
 
             while (rs.next()) {
-                Students student = createStudent(rs);
-                StudentsAndClasses studentAndClass = createStudentAndClass(rs);
-                Classes studentClass = createClass(rs);
-                Results result = createResult(rs);
-                Assignments assignment = createAssignment(rs);
-                Departments department = createDepartment(rs);
-                Instructors instructor = createInstructor(rs);
+                Students student = EntityHelper.createStudent(rs);
+                StudentsAndClasses studentAndClass = EntityHelper.createStudentAndClass(rs);
+                Classes studentClass = EntityHelper.createClass(rs);
+                Results result = EntityHelper.createResult(rs);
+                Assignments assignment = EntityHelper.createAssignment(rs);
+                Departments department = EntityHelper.createDepartment(rs);
+                Instructors instructor = EntityHelper.createInstructor(rs);
 
                 SessionFactory sessionFactory = HibernateUtil.getSessionFactory();
                 Session session = sessionFactory.openSession();
@@ -257,7 +242,6 @@ public class MainForm extends javax.swing.JFrame {
         try {
             List<Students> students = new ArrayList<Students>();
             try {
-                // TODO add your handling code here:
                 Class.forName("com.mysql.jdbc.Driver");
                 String user = "root";
                 String password = "admin";
@@ -275,10 +259,8 @@ public class MainForm extends javax.swing.JFrame {
             } catch (SQLException ex) {
                 Logger.getLogger(MainForm.class.getName()).log(Level.SEVERE, null, ex);
             }
-
             String excelFilePath = "All Students.xls";
-            writeExcel(students, excelFilePath);
-
+            ExportHelper.writeExcel(students, excelFilePath);
         } catch (IOException ex) {
             Logger.getLogger(MainForm.class.getName()).log(Level.SEVERE, null, ex);
         }
@@ -301,7 +283,7 @@ public class MainForm extends javax.swing.JFrame {
                         + "ON students.assignments.AssignmentID = students.results.AssignmentID");
                 rs = st.executeQuery();
 
-                writeResultsExcel(rs, excelFilePath);
+                ExportHelper.writeResultsExcel(rs, excelFilePath);
                 con.close();
             } catch (ClassNotFoundException ex) {
                 Logger.getLogger(MainForm.class.getName()).log(Level.SEVERE, null, ex);
@@ -382,13 +364,9 @@ public class MainForm extends javax.swing.JFrame {
             sslsocket.startHandshake();
 
             outputstream = sslsocket.getOutputStream();
-            //outputstreamwriter = new OutputStreamWriter(outputstream);
-            //bufferedwriter = new BufferedWriter(outputstreamwriter);
             dOut = new DataOutputStream(outputstream);
             dOut.writeInt(publicKey.getEncoded().length); // write length of the message
             dOut.write(publicKey.getEncoded());
-            //bufferedwriter.write(publicKey.getEncoded());
-            //bufferedwriter.flush();
         } catch (IOException ex) {
             Logger.getLogger(MainForm.class.getName()).log(Level.SEVERE, null, ex);
         } catch (NoSuchAlgorithmException ex) {
@@ -398,8 +376,6 @@ public class MainForm extends javax.swing.JFrame {
         } finally {
             try {
                 sslsocket.close();
-                //bufferedwriter.close();
-                //outputstreamwriter.close();
                 dOut.close();
                 outputstream.close();
                 this.sendPublicRSA.setEnabled(false);
@@ -423,13 +399,10 @@ public class MainForm extends javax.swing.JFrame {
         ObjectInputStream in = null;
         String message = null;
         try {
-            //1. creating a server socket
             providerSocket = new ServerSocket(2004, 10);
-            //2. Wait for connection
             System.out.println("Waiting for connection");
             connection = providerSocket.accept();
             System.out.println("Connection received from " + connection.getInetAddress().getHostName());
-            //3. get Input and Output streams
             out = new ObjectOutputStream(connection.getOutputStream());
             out.flush();
             in = new ObjectInputStream(connection.getInputStream());
@@ -437,7 +410,6 @@ public class MainForm extends javax.swing.JFrame {
             out.writeObject("Connection successful");
             out.flush();
             System.out.println("server>" + "Connection successful");
-            //4. The two parts communicate via the input and output streams
             do {
                 try {
                     message = (String) in.readObject();
@@ -454,7 +426,6 @@ public class MainForm extends javax.swing.JFrame {
         } catch (IOException ioException) {
             ioException.printStackTrace();
         } finally {
-            //4: Closing connection
             try {
                 in.close();
                 out.close();
@@ -496,179 +467,6 @@ public class MainForm extends javax.swing.JFrame {
                 session.close();
             }
         }
-}
-
-public void writeExcel(List<Students> students, String excelFilePath) throws IOException {
-        Workbook workbook = new HSSFWorkbook();
-        Sheet sheet = workbook.createSheet();
-
-        int rowCount = 0;
-
-        for (Students student : students) {
-            Row row = sheet.createRow(++rowCount);
-            writeStudent(student, row);
-        }
-
-        try (FileOutputStream outputStream = new FileOutputStream(excelFilePath)) {
-            workbook.write(outputStream);
-        }
-    }
-
-    public void writeResultsExcel(ResultSet results, String excelFilePath) throws IOException, SQLException {
-        Workbook workbook = new HSSFWorkbook();
-        Sheet sheet = workbook.createSheet();
-
-        int rowCount = 0;
-        while (results.next()) {
-            Row row = sheet.createRow(++rowCount);
-            writeResult(results, row);
-        }
-
-        try (FileOutputStream outputStream = new FileOutputStream(excelFilePath)) {
-            workbook.write(outputStream);
-        }
-    }
-
-    private void writeResult(ResultSet rs, Row row) throws SQLException {
-        Cell cell = row.createCell(0);
-        cell.setCellValue(rs.getString(1));
-
-        cell = row.createCell(1);
-        cell.setCellValue(rs.getString(2));
-
-        cell = row.createCell(2);
-        cell.setCellValue(rs.getString(3));
-
-        cell = row.createCell(3);
-        cell.setCellValue(rs.getString(4));
-
-        cell = row.createCell(4);
-        cell.setCellValue(rs.getString(5));
-
-        cell = row.createCell(5);
-        cell.setCellValue(rs.getInt(6));
-
-        cell = row.createCell(6);
-        cell.setCellValue(rs.getBoolean(7));
-
-        cell = row.createCell(7);
-        cell.setCellValue(rs.getString(8));
-
-        cell = row.createCell(8);
-        cell.setCellValue(rs.getBoolean(9));
-
-        cell = row.createCell(9);
-        cell.setCellValue(rs.getDouble(10));
-
-        cell = row.createCell(10);
-        cell.setCellValue(rs.getInt(11));
-    }
-
-    private void writeStudent(Students student, Row row) {
-        Cell cell = row.createCell(0);
-        cell.setCellValue(student.getStudentId());
-
-        cell = row.createCell(1);
-        cell.setCellValue(student.getFirstName());
-
-        cell = row.createCell(2);
-        cell.setCellValue(student.getLastName());
-    }
-
-    static Students createStudent(ResultSet rs) throws SQLException {
-        Students student = new Students();
-
-        student.setFirstName(rs.getString(1));
-        student.setLastName(rs.getString(2));
-        student.setStudentId(rs.getInt(3));
-        student.setParentsNames(rs.getString(4));
-        student.setAddress(rs.getString(5));
-        student.setCity(rs.getString(6));
-        student.setStateOrProvince(rs.getString(7));
-        student.setPostalCode(rs.getString(8));
-        student.setPhoneNumber(rs.getString(9));
-        student.setEmailName(rs.getString(10));
-        student.setMajor(rs.getString(11));
-        student.setStudentNumber(rs.getString(12));
-        student.setNotes(rs.getString(13));
-
-        return student;
-    }
-
-    static StudentsAndClasses createStudentAndClass(ResultSet rs) throws SQLException {
-        StudentsAndClasses studentsAndClasses = new StudentsAndClasses();
-
-        studentsAndClasses.setStudentClassId(rs.getInt(14));
-        studentsAndClasses.setClassId(rs.getInt(15));
-        studentsAndClasses.setStudentId(rs.getInt(16));
-        studentsAndClasses.setGrade(rs.getString(17));
-
-        return studentsAndClasses;
-    }
-
-    static Classes createClass(ResultSet rs) throws SQLException {
-        Classes classes = new Classes();
-
-        classes.setClassId(rs.getInt(18));
-        classes.setClassName(rs.getString(19));
-        classes.setSectionNum(rs.getInt(20));
-        classes.setTerm(rs.getString(21));
-        classes.setUnits(rs.getString(22));
-        classes.setYear(rs.getInt(23));
-        classes.setLocation(rs.getString(24));
-        classes.setDaysAndTimes(rs.getString(25));
-        classes.setNotes(rs.getString(26));
-
-        return classes;
-    }
-
-    static Results createResult(ResultSet rs) throws SQLException {
-        Results results = new Results();
-
-        results.setResultsId(rs.getInt(27));
-        results.setStudentId(rs.getInt(28));
-        results.setAssignmentId(rs.getInt(29));
-        results.setScore(rs.getInt(46));
-        results.setLate(rs.getBoolean(30));
-
-        return results;
-    }
-
-    static Assignments createAssignment(ResultSet rs) throws SQLException {
-        Assignments assignment = new Assignments();
-
-        assignment.setAssignmentId(rs.getInt(31));
-        assignment.setAssignmentsDescription(rs.getString(32));
-        assignment.setClassId(rs.getInt(33));
-        assignment.setExam(rs.getBoolean(34));
-        assignment.setPercentOfGrade(rs.getFloat(35));
-        assignment.setMaximumPoints(rs.getInt(47));
-
-        return assignment;
-    }
-
-    static Departments createDepartment(ResultSet rs) throws SQLException {
-        Departments department = new Departments();
-
-        department.setDepartmentId(rs.getInt(36));
-        department.setDepartmentName(rs.getString(37));
-        department.setDepartmentNumber(rs.getInt(38));
-        department.setDepartmentManager(rs.getString(39));
-        department.setDepartmentChairperson(rs.getString(40));
-
-        return department;
-    }
-
-    static Instructors createInstructor(ResultSet rs) throws SQLException {
-        Instructors instructor = new Instructors();
-
-        instructor.setInstructorId(rs.getInt(41));
-        instructor.setInstructor(rs.getString(42));
-        instructor.setEmailName(rs.getString(43));
-        instructor.setPhoneNumber(rs.getString(44));
-        instructor.setExtension(rs.getString(45));
-
-        return instructor;
     }
 
     /**
@@ -686,35 +484,23 @@ public void writeExcel(List<Students> students, String excelFilePath) throws IOE
                     javax.swing.UIManager.setLookAndFeel(info.getClassName());
                     break;
 
-                
-
-}
+                }
             }
         } catch (ClassNotFoundException ex) {
             java.util.logging.Logger.getLogger(MainForm.class
+                    .getName()).log(java.util.logging.Level.SEVERE, null, ex);
 
-.getName()).log(java.util.logging.Level.SEVERE, null, ex);
-
-        
-
-} catch (InstantiationException ex) {
+        } catch (InstantiationException ex) {
             java.util.logging.Logger.getLogger(MainForm.class
+                    .getName()).log(java.util.logging.Level.SEVERE, null, ex);
 
-.getName()).log(java.util.logging.Level.SEVERE, null, ex);
-
-        
-
-} catch (IllegalAccessException ex) {
+        } catch (IllegalAccessException ex) {
             java.util.logging.Logger.getLogger(MainForm.class
+                    .getName()).log(java.util.logging.Level.SEVERE, null, ex);
 
-.getName()).log(java.util.logging.Level.SEVERE, null, ex);
-
-        
-
-} catch (javax.swing.UnsupportedLookAndFeelException ex) {
+        } catch (javax.swing.UnsupportedLookAndFeelException ex) {
             java.util.logging.Logger.getLogger(MainForm.class
-
-.getName()).log(java.util.logging.Level.SEVERE, null, ex);
+                    .getName()).log(java.util.logging.Level.SEVERE, null, ex);
         }
         //</editor-fold>
 
