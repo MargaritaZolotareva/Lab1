@@ -10,9 +10,16 @@ import com.springapp.entities.StudentsAndClasses;
 import com.springapp.helpers.DataMethodHelper;
 import com.springapp.helpers.DbHelper;
 import com.springapp.helpers.EntityHelper;
+import java.io.BufferedReader;
+import java.io.BufferedWriter;
 import java.io.DataInputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.io.OutputStream;
+import java.io.OutputStreamWriter;
+import java.net.InetAddress;
+import java.net.Socket;
 import java.security.GeneralSecurityException;
 import java.security.InvalidKeyException;
 import java.security.KeyFactory;
@@ -33,6 +40,7 @@ import javax.crypto.IllegalBlockSizeException;
 import javax.crypto.KeyGenerator;
 import javax.crypto.NoSuchPaddingException;
 import javax.crypto.SecretKey;
+import javax.crypto.spec.SecretKeySpec;
 import javax.naming.InitialContext;
 import javax.net.ssl.SSLServerSocket;
 import javax.net.ssl.SSLServerSocketFactory;
@@ -171,7 +179,13 @@ public class MainForm extends javax.swing.JFrame {
             parseData(rs, assignments, classes, departments, instructors, results, students, studentsAndClasses);
 
             if (this.SocketsButton.isSelected()) {
-
+                sendDataWithSockets(students);
+                sendDataWithSockets(studentsAndClasses);
+                sendDataWithSockets(classes);
+                sendDataWithSockets(results);
+                sendDataWithSockets(assignments);
+                sendDataWithSockets(departments);
+                sendDataWithSockets(instructors);
             } else if (this.MQButton.isSelected()) {
                 sendDataWithMQ(students);
                 sendDataWithMQ(studentsAndClasses);
@@ -213,6 +227,64 @@ public class MainForm extends javax.swing.JFrame {
             msg.writeBytes(encKey);
             sender.send(msg);
             System.out.println("Symmetric key successfully sent.");
+            con.close();
+        } catch (Exception e) {
+            System.out.println(e);
+        }
+    }
+
+    private void sendDataWithSockets(List<String> list) throws NoSuchAlgorithmException, NoSuchPaddingException {
+        cipher = Cipher.getInstance("AES");
+        this.symmetricKey = new SecretKeySpec(Base64.decodeBase64("Sct1EfmbT4ILo/CmKD5A1g=="), 0, Base64.decodeBase64("Sct1EfmbT4ILo/CmKD5A1g==").length, "AES");
+        Socket socket = null;
+        try {
+            String host = "localhost";
+            int port = 2004;
+            InetAddress address = InetAddress.getByName(host);
+            socket = new Socket(address, port);
+
+            //Send the message to the server
+            OutputStream os = socket.getOutputStream();
+            OutputStreamWriter osw = new OutputStreamWriter(os);
+            BufferedWriter bw = new BufferedWriter(osw);
+
+            for (String obj : list) {
+                bw.write(obj);
+            }
+            bw.flush();
+            System.out.println("Message sent to the server");
+
+        } catch (Exception exception) {
+            exception.printStackTrace();
+        } finally {
+            //Closing the socket
+            try {
+                socket.close();
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        }
+
+        try {
+            Properties props = new Properties();
+            props.setProperty("java.naming.factory.initial", "com.sun.enterprise.naming.SerialInitContextFactory");
+            props.setProperty("java.naming.factory.url.pkgs", "com.sun.enterprise.naming");
+            props.setProperty("java.naming.factory.state", "com.sun.corba.ee.impl.presentation.rmi.JNDIStateFactoryImpl");
+            props.setProperty("org.omg.CORBA.ORBInitialHost", "localhost");
+            props.setProperty("org.omg.CORBA.ORBInitialPort", "3700");
+            Context ctx = new InitialContext(props);
+            QueueConnectionFactory f = (QueueConnectionFactory) ctx.lookup("myQueueConnectionFactory");
+            QueueConnection con = f.createQueueConnection();
+            con.start();
+            QueueSession ses = con.createQueueSession(false, Session.AUTO_ACKNOWLEDGE);
+            Queue t = (Queue) ctx.lookup("dataQueue");
+            QueueSender sender = ses.createSender(t);
+            TextMessage msg = ses.createTextMessage();
+            for (String obj : list) {
+                msg.setText(obj);
+                sender.send(msg);
+            }
+            System.out.println("List successfully sent.");
             con.close();
         } catch (Exception e) {
             System.out.println(e);
@@ -356,7 +428,6 @@ public class MainForm extends javax.swing.JFrame {
                     String encStudent = encrypt(DataMethodHelper.compress(DataMethodHelper.serialize(student)), symmetricKey);
                     students.add(encStudent);
                     Object obj = DataMethodHelper.deserialize(DataMethodHelper.decompress(decrypt(encStudent.getBytes(), symmetricKey)));
-                    
                 }
                 if (!studentsAndClassesIds.contains(studentAndClass.getStudentClassId())) {
                     studentsAndClassesIds.add(studentAndClass.getStudentClassId());

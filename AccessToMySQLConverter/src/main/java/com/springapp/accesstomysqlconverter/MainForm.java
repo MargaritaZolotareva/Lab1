@@ -5,6 +5,7 @@
  */
 package com.springapp.accesstomysqlconverter;
 
+import static com.springapp.accesstomysqlconverter.MyListener.decrypt;
 import com.springapp.entities.Assignments;
 import com.springapp.entities.Classes;
 import com.springapp.entities.Departments;
@@ -12,11 +13,15 @@ import com.springapp.entities.Instructors;
 import com.springapp.entities.Results;
 import com.springapp.entities.Students;
 import com.springapp.entities.StudentsAndClasses;
+import com.springapp.helpers.DataMethodHelper;
 import com.springapp.helpers.EntityHelper;
 import com.springapp.helpers.ExportHelper;
+import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.DataOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.io.OutputStream;
@@ -41,6 +46,7 @@ import java.util.Properties;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.crypto.Cipher;
+import javax.crypto.NoSuchPaddingException;
 import javax.crypto.SecretKey;
 import javax.crypto.spec.SecretKeySpec;
 import javax.jms.*;
@@ -48,6 +54,7 @@ import javax.naming.Context;
 import javax.naming.InitialContext;
 import javax.net.ssl.SSLSocket;
 import javax.net.ssl.SSLSocketFactory;
+import org.apache.commons.codec.binary.Base64;
 import static org.eclipse.persistence.internal.oxm.conversion.Base64.base64Encode;
 import org.hibernate.Session;
 import org.hibernate.SessionFactory;
@@ -388,52 +395,119 @@ public class MainForm extends javax.swing.JFrame {
     }//GEN-LAST:event_sendPublicRSAActionPerformed
 
     private void launchDataReceiverActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_launchDataReceiverActionPerformed
-        launchMQServer();
-        launchSocketsServer();
+        try {
+            launchMQServer();
+            launchSocketsServer();
+        } catch (NoSuchAlgorithmException ex) {
+            Logger.getLogger(MainForm.class.getName()).log(Level.SEVERE, null, ex);
+        } catch (NoSuchPaddingException ex) {
+            Logger.getLogger(MainForm.class.getName()).log(Level.SEVERE, null, ex);
+        }
     }//GEN-LAST:event_launchDataReceiverActionPerformed
 
-    private void launchSocketsServer() {
-        ServerSocket providerSocket = null;
-        Socket connection = null;
-        ObjectOutputStream out = null;
-        ObjectInputStream in = null;
-        String message = null;
+    private void launchSocketsServer() throws NoSuchAlgorithmException, NoSuchPaddingException {
+        cipher = Cipher.getInstance("AES");
+        this.symmetricKey = new SecretKeySpec(Base64.decodeBase64("Sct1EfmbT4ILo/CmKD5A1g=="), 0, Base64.decodeBase64("Sct1EfmbT4ILo/CmKD5A1g==").length, "AES");
+        ServerSocket serverSocket = null;
+        Socket socket = null;
+        SessionFactory sessionFactory = null;
+        Session session = null;
         try {
-            providerSocket = new ServerSocket(2004, 10);
-            System.out.println("Waiting for connection");
-            connection = providerSocket.accept();
-            System.out.println("Connection received from " + connection.getInetAddress().getHostName());
-            out = new ObjectOutputStream(connection.getOutputStream());
-            out.flush();
-            in = new ObjectInputStream(connection.getInputStream());
+            while (true) {
+                serverSocket = new ServerSocket(2004, 10);
+                //Reading the message from the client
+                socket = serverSocket.accept();
+                InputStream is = socket.getInputStream();
+                InputStreamReader isr = new InputStreamReader(is);
+                BufferedReader br = new BufferedReader(isr);
+                String message = br.readLine();
+                SecretKey originalKey = new SecretKeySpec(this.symmetricKey.getEncoded(), 0, this.symmetricKey.getEncoded().length, "AES");
+                Object obj = DataMethodHelper.deserialize(DataMethodHelper.decompress(decrypt(message.toString().getBytes(), originalKey)));
+                Class objClass = obj.getClass();
 
-            out.writeObject("Connection successful");
-            out.flush();
-            System.out.println("server>" + "Connection successful");
-            do {
-                try {
-                    message = (String) in.readObject();
-                    System.out.println("client>" + message);
-                    if (message.equals("bye")) {
-                        out.writeObject("bye");
-                        out.flush();
-                        System.out.println("server>" + "bye");
-                    }
-                } catch (ClassNotFoundException classnot) {
-                    System.err.println("Data received in unknown format");
+                //sessionFactory = HibernateUtil.getSessionFactory();
+                session = null;//sessionFactory.openSession();
+                //Transaction tx = session.beginTransaction();
+                switch (objClass.toString()) {
+                    case "Students":
+                        Students student = (Students) obj;
+                        session.save(student);
+                        break;
+                    case "StudentsAndClasses":
+                        StudentsAndClasses studentAndClass = (StudentsAndClasses) obj;
+                        session.save(studentAndClass);
+                        break;
+                    case "Classes":
+                        Classes studentsClass = (Classes) obj;
+                        session.save(studentsClass);
+                        break;
+                    case "Results":
+                        Results result = (Results) obj;
+                        session.save(result);
+                        break;
+                    case "Assignments":
+                        Assignments assignment = (Assignments) obj;
+                        session.save(assignment);
+                        break;
+                    case "Departments":
+                        Departments department = (Departments) obj;
+                        session.save(department);
+                        break;
+                    case "Instructors":
+                        Instructors instructor = (Instructors) obj;
+                        session.save(instructor);
+                        break;
                 }
-            } while (!message.equals("bye"));
-        } catch (IOException ioException) {
-            ioException.printStackTrace();
+                //tx.commit();
+                System.out.println("Message received from client is: " + message);
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
         } finally {
             try {
-                in.close();
-                out.close();
-                providerSocket.close();
-            } catch (IOException ioException) {
-                ioException.printStackTrace();
+                socket.close();
+                if (session != null) {
+                    session.close();
+                }
+            } catch (Exception e) {
             }
         }
+        /*try {
+         providerSocket = new ServerSocket(2004, 10);
+         System.out.println("Waiting for connection");
+         connection = providerSocket.accept();
+         System.out.println("Connection received from " + connection.getInetAddress().getHostName());
+         out = new ObjectOutputStream(connection.getOutputStream());
+         out.flush();
+         in = new ObjectInputStream(connection.getInputStream());
+
+         out.writeObject("Connection successful");
+         out.flush();
+         System.out.println("server>" + "Connection successful");
+         do {
+         try {
+         message = (String) in.readObject();
+         System.out.println("client>" + message);
+         if (message.equals("bye")) {
+         out.writeObject("bye");
+         out.flush();
+         System.out.println("server>" + "bye");
+         }
+         } catch (ClassNotFoundException ex) {
+         System.err.println("Data received in unknown format");
+         }
+         } while (!message.equals("bye"));
+         } catch (IOException ioException) {
+         ioException.printStackTrace();
+         } finally {
+         try {
+         in.close();
+         out.close();
+         providerSocket.close();
+         } catch (IOException ioException) {
+         ioException.printStackTrace();
+         }
+         }*/
     }
 
     private void launchMQServer() {
@@ -454,8 +528,8 @@ public class MainForm extends javax.swing.JFrame {
             QueueSession ses = con.createQueueSession(false, javax.jms.Session.AUTO_ACKNOWLEDGE);
             Queue t = (Queue) ctx.lookup("dataQueue");
             QueueReceiver receiver = ses.createReceiver(t);
-            sessionFactory = HibernateUtil.getSessionFactory();
-            session = sessionFactory.openSession();
+            //sessionFactory = HibernateUtil.getSessionFactory();
+            session = null;//sessionFactory.openSession();
             MyListener listener = new MyListener(this.symmetricKey.getEncoded(), session);
             receiver.setMessageListener(listener);
 
