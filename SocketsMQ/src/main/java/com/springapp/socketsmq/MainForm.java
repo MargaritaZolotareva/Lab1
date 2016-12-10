@@ -10,14 +10,10 @@ import com.springapp.entities.StudentsAndClasses;
 import com.springapp.helpers.DataMethodHelper;
 import com.springapp.helpers.DbHelper;
 import com.springapp.helpers.EntityHelper;
-import java.io.BufferedReader;
-import java.io.BufferedWriter;
 import java.io.DataInputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.InputStreamReader;
-import java.io.OutputStream;
-import java.io.OutputStreamWriter;
+import java.io.ObjectOutputStream;
 import java.net.InetAddress;
 import java.net.Socket;
 import java.security.GeneralSecurityException;
@@ -168,13 +164,13 @@ public class MainForm extends javax.swing.JFrame {
             // Fetch data from DB
             ResultSet rs = DbHelper.fetchDataFromDB();
 
-            List<String> assignments = new ArrayList<>();
-            List<String> classes = new ArrayList();
-            List<String> departments = new ArrayList();
-            List<String> instructors = new ArrayList();
-            List<String> results = new ArrayList();
-            List<String> students = new ArrayList();
-            List<String> studentsAndClasses = new ArrayList();
+            ArrayList<String> assignments = new ArrayList<>();
+            ArrayList<String> classes = new ArrayList();
+            ArrayList<String> departments = new ArrayList();
+            ArrayList<String> instructors = new ArrayList();
+            ArrayList<String> results = new ArrayList();
+            ArrayList<String> students = new ArrayList();
+            ArrayList<String> studentsAndClasses = new ArrayList();
 
             parseData(rs, assignments, classes, departments, instructors, results, students, studentsAndClasses);
 
@@ -195,6 +191,13 @@ public class MainForm extends javax.swing.JFrame {
                 sendDataWithMQ(departments);
                 sendDataWithMQ(instructors);
             }
+            assignmentsIds.clear();
+            classesIds.clear();
+            departmentsIds.clear();
+            instructorsIds.clear();
+            resultsIds.clear();
+            studentsIds.clear();
+            studentsAndClassesIds.clear();
         } catch (SQLException ex) {
             Logger.getLogger(MainForm.class
                     .getName()).log(Level.SEVERE, null, ex);
@@ -233,9 +236,7 @@ public class MainForm extends javax.swing.JFrame {
         }
     }
 
-    private void sendDataWithSockets(List<String> list) throws NoSuchAlgorithmException, NoSuchPaddingException {
-        cipher = Cipher.getInstance("AES");
-        this.symmetricKey = new SecretKeySpec(Base64.decodeBase64("Sct1EfmbT4ILo/CmKD5A1g=="), 0, Base64.decodeBase64("Sct1EfmbT4ILo/CmKD5A1g==").length, "AES");
+    private void sendDataWithSockets(ArrayList<String> list) throws NoSuchAlgorithmException, NoSuchPaddingException {
         Socket socket = null;
         try {
             String host = "localhost";
@@ -243,51 +244,18 @@ public class MainForm extends javax.swing.JFrame {
             InetAddress address = InetAddress.getByName(host);
             socket = new Socket(address, port);
 
-            //Send the message to the server
-            OutputStream os = socket.getOutputStream();
-            OutputStreamWriter osw = new OutputStreamWriter(os);
-            BufferedWriter bw = new BufferedWriter(osw);
+            ObjectOutputStream outputStream = new ObjectOutputStream(socket.getOutputStream());
+            outputStream.writeObject(list);
 
-            for (String obj : list) {
-                bw.write(obj);
-            }
-            bw.flush();
-            System.out.println("Message sent to the server");
-
-        } catch (Exception exception) {
+        } catch (IOException exception) {
             exception.printStackTrace();
         } finally {
             //Closing the socket
             try {
                 socket.close();
-            } catch (Exception e) {
+            } catch (IOException e) {
                 e.printStackTrace();
             }
-        }
-
-        try {
-            Properties props = new Properties();
-            props.setProperty("java.naming.factory.initial", "com.sun.enterprise.naming.SerialInitContextFactory");
-            props.setProperty("java.naming.factory.url.pkgs", "com.sun.enterprise.naming");
-            props.setProperty("java.naming.factory.state", "com.sun.corba.ee.impl.presentation.rmi.JNDIStateFactoryImpl");
-            props.setProperty("org.omg.CORBA.ORBInitialHost", "localhost");
-            props.setProperty("org.omg.CORBA.ORBInitialPort", "3700");
-            Context ctx = new InitialContext(props);
-            QueueConnectionFactory f = (QueueConnectionFactory) ctx.lookup("myQueueConnectionFactory");
-            QueueConnection con = f.createQueueConnection();
-            con.start();
-            QueueSession ses = con.createQueueSession(false, Session.AUTO_ACKNOWLEDGE);
-            Queue t = (Queue) ctx.lookup("dataQueue");
-            QueueSender sender = ses.createSender(t);
-            TextMessage msg = ses.createTextMessage();
-            for (String obj : list) {
-                msg.setText(obj);
-                sender.send(msg);
-            }
-            System.out.println("List successfully sent.");
-            con.close();
-        } catch (Exception e) {
-            System.out.println(e);
         }
     }
 
@@ -327,7 +295,7 @@ public class MainForm extends javax.swing.JFrame {
         SSLSocket sslsocket = null;
         InputStream inputstream = null;
         SSLServerSocket sslserversocket = null;
-        DataInputStream dIn = null;
+        DataInputStream dIn;
         try {
             System.setProperty("javax.net.ssl.keyStore", "mySrvKeystore");
             System.setProperty("javax.net.ssl.keyStorePassword", "123456");
@@ -352,7 +320,7 @@ public class MainForm extends javax.swing.JFrame {
             KeyFactory keyFactory = KeyFactory.getInstance("RSA");
             this.publicKey = keyFactory.generatePublic(keySpec);
             System.out.println("Received public key: " + savePublicKey(publicKey));
-        } catch (Exception exception) {
+        } catch (IOException | GeneralSecurityException exception) {
             exception.printStackTrace();
         } finally {
             try {
@@ -387,9 +355,7 @@ public class MainForm extends javax.swing.JFrame {
             throws Exception {
         cipher.init(Cipher.ENCRYPT_MODE, secretKey);
         byte[] encryptedByte = cipher.doFinal(dataBytes);
-
-        java.util.Base64.Encoder encoder = java.util.Base64.getEncoder();
-        String encryptedText = encoder.encodeToString(encryptedByte);
+        String encryptedText = Base64.encodeBase64String(encryptedByte);
         return encryptedText;
     }
 
@@ -413,6 +379,8 @@ public class MainForm extends javax.swing.JFrame {
     }
 
     private void parseData(ResultSet rs, List<String> assignments, List<String> classes, List<String> departments, List<String> instructors, List<String> results, List<String> students, List<String> studentsAndClasses) throws SQLException, NoSuchAlgorithmException, NoSuchPaddingException {
+        //MainForm.cipher = Cipher.getInstance("AES");
+        //this.symmetricKey = new SecretKeySpec(Base64.decodeBase64("Sct1EfmbT4ILo/CmKD5A1g=="), 0, Base64.decodeBase64("Sct1EfmbT4ILo/CmKD5A1g==").length, "AES");
         while (rs.next()) {
             Students student = EntityHelper.createStudent(rs);
             StudentsAndClasses studentAndClass = EntityHelper.createStudentAndClass(rs);
@@ -425,13 +393,12 @@ public class MainForm extends javax.swing.JFrame {
             try {
                 if (!studentsIds.contains(student.getStudentId())) {
                     studentsIds.add(student.getStudentId());
-                    String encStudent = encrypt(DataMethodHelper.compress(DataMethodHelper.serialize(student)), symmetricKey);
+                    String encStudent = packData(student);
                     students.add(encStudent);
-                    Object obj = DataMethodHelper.deserialize(DataMethodHelper.decompress(decrypt(encStudent.getBytes(), symmetricKey)));
                 }
                 if (!studentsAndClassesIds.contains(studentAndClass.getStudentClassId())) {
                     studentsAndClassesIds.add(studentAndClass.getStudentClassId());
-                    String encStudentAndClass = packData(student);
+                    String encStudentAndClass = packData(studentAndClass);
                     studentsAndClasses.add(encStudentAndClass);
                 }
                 if (!classesIds.contains(studentClass.getClassId())) {

@@ -5,7 +5,6 @@
  */
 package com.springapp.accesstomysqlconverter;
 
-import static com.springapp.accesstomysqlconverter.MyListener.decrypt;
 import com.springapp.entities.Assignments;
 import com.springapp.entities.Classes;
 import com.springapp.entities.Departments;
@@ -16,18 +15,13 @@ import com.springapp.entities.StudentsAndClasses;
 import com.springapp.helpers.DataMethodHelper;
 import com.springapp.helpers.EntityHelper;
 import com.springapp.helpers.ExportHelper;
-import java.io.BufferedReader;
-import java.io.BufferedWriter;
 import java.io.DataOutputStream;
 import java.io.IOException;
-import java.io.InputStream;
-import java.io.InputStreamReader;
 import java.io.ObjectInputStream;
-import java.io.ObjectOutputStream;
 import java.io.OutputStream;
-import java.io.OutputStreamWriter;
 import java.net.*;
 import java.security.GeneralSecurityException;
+import java.security.InvalidKeyException;
 import java.security.KeyPair;
 import java.security.KeyPairGenerator;
 import java.security.NoSuchAlgorithmException;
@@ -45,17 +39,20 @@ import java.util.List;
 import java.util.Properties;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import javax.crypto.BadPaddingException;
 import javax.crypto.Cipher;
+import javax.crypto.IllegalBlockSizeException;
 import javax.crypto.NoSuchPaddingException;
 import javax.crypto.SecretKey;
 import javax.crypto.spec.SecretKeySpec;
 import javax.jms.*;
 import javax.naming.Context;
 import javax.naming.InitialContext;
+import javax.naming.NamingException;
 import javax.net.ssl.SSLSocket;
 import javax.net.ssl.SSLSocketFactory;
 import org.apache.commons.codec.binary.Base64;
-import static org.eclipse.persistence.internal.oxm.conversion.Base64.base64Encode;
+import org.hibernate.HibernateException;
 import org.hibernate.Session;
 import org.hibernate.SessionFactory;
 import org.hibernate.Transaction;
@@ -247,7 +244,7 @@ public class MainForm extends javax.swing.JFrame {
 
     private void exportStudentsButtonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_exportStudentsButtonActionPerformed
         try {
-            List<Students> students = new ArrayList<Students>();
+            List<Students> students = new ArrayList<>();
             try {
                 Class.forName("com.mysql.jdbc.Driver");
                 String user = "root";
@@ -261,9 +258,7 @@ public class MainForm extends javax.swing.JFrame {
                     students.add(new Students(rs.getInt(1), rs.getString(2), rs.getString(3)));
                 }
                 con.close();
-            } catch (ClassNotFoundException ex) {
-                Logger.getLogger(MainForm.class.getName()).log(Level.SEVERE, null, ex);
-            } catch (SQLException ex) {
+            } catch (ClassNotFoundException | SQLException ex) {
                 Logger.getLogger(MainForm.class.getName()).log(Level.SEVERE, null, ex);
             }
             String excelFilePath = "All Students.xls";
@@ -276,7 +271,7 @@ public class MainForm extends javax.swing.JFrame {
 
     private void exportResultsButtonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_exportResultsButtonActionPerformed
         try {
-            ResultSet rs = null;
+            ResultSet rs;
             String excelFilePath = "All Results.xls";
             try {
                 Class.forName("com.mysql.jdbc.Driver");
@@ -292,9 +287,7 @@ public class MainForm extends javax.swing.JFrame {
 
                 ExportHelper.writeResultsExcel(rs, excelFilePath);
                 con.close();
-            } catch (ClassNotFoundException ex) {
-                Logger.getLogger(MainForm.class.getName()).log(Level.SEVERE, null, ex);
-            } catch (SQLException ex) {
+            } catch (ClassNotFoundException | SQLException ex) {
                 Logger.getLogger(MainForm.class.getName()).log(Level.SEVERE, null, ex);
             }
 
@@ -332,9 +325,10 @@ public class MainForm extends javax.swing.JFrame {
             cipher.init(Cipher.DECRYPT_MODE, privateKey);
             byte[] symKey = cipher.doFinal(msbody);
 
+            this.cipher = Cipher.getInstance("AES");
             this.symmetricKey = new SecretKeySpec(symKey, 0, symKey.length, "AES");
-            System.out.println("Key received:" + new String(base64Encode(symKey)));
-        } catch (Exception e) {
+            System.out.println("Key received:" + new String(Base64.encodeBase64(symKey)));
+        } catch (InvalidKeyException | NoSuchAlgorithmException | BadPaddingException | IllegalBlockSizeException | NoSuchPaddingException | JMSException | NamingException e) {
             Logger.getLogger(MainForm.class.getName()).log(Level.SEVERE, null, e);
         } finally {
             try {
@@ -357,8 +351,6 @@ public class MainForm extends javax.swing.JFrame {
 
     private void sendPublicRSAActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_sendPublicRSAActionPerformed
         OutputStream outputstream = null;
-        OutputStreamWriter outputstreamwriter = null;
-        BufferedWriter bufferedwriter = null;
         DataOutputStream dOut = null;
         SSLSocket sslsocket = null;
         try {
@@ -374,11 +366,7 @@ public class MainForm extends javax.swing.JFrame {
             dOut = new DataOutputStream(outputstream);
             dOut.writeInt(publicKey.getEncoded().length); // write length of the message
             dOut.write(publicKey.getEncoded());
-        } catch (IOException ex) {
-            Logger.getLogger(MainForm.class.getName()).log(Level.SEVERE, null, ex);
-        } catch (NoSuchAlgorithmException ex) {
-            Logger.getLogger(MainForm.class.getName()).log(Level.SEVERE, null, ex);
-        } catch (GeneralSecurityException ex) {
+        } catch (IOException | GeneralSecurityException ex) {
             Logger.getLogger(MainForm.class.getName()).log(Level.SEVERE, null, ex);
         } finally {
             try {
@@ -398,68 +386,101 @@ public class MainForm extends javax.swing.JFrame {
         try {
             launchMQServer();
             launchSocketsServer();
-        } catch (NoSuchAlgorithmException ex) {
-            Logger.getLogger(MainForm.class.getName()).log(Level.SEVERE, null, ex);
-        } catch (NoSuchPaddingException ex) {
+        } catch (NoSuchAlgorithmException | NoSuchPaddingException ex) {
             Logger.getLogger(MainForm.class.getName()).log(Level.SEVERE, null, ex);
         }
     }//GEN-LAST:event_launchDataReceiverActionPerformed
 
-    private void launchSocketsServer() throws NoSuchAlgorithmException, NoSuchPaddingException {
-        cipher = Cipher.getInstance("AES");
-        this.symmetricKey = new SecretKeySpec(Base64.decodeBase64("Sct1EfmbT4ILo/CmKD5A1g=="), 0, Base64.decodeBase64("Sct1EfmbT4ILo/CmKD5A1g==").length, "AES");
-        ServerSocket serverSocket = null;
-        Socket socket = null;
-        SessionFactory sessionFactory = null;
-        Session session = null;
-        try {
-            while (true) {
-                serverSocket = new ServerSocket(2004, 10);
-                //Reading the message from the client
-                socket = serverSocket.accept();
-                InputStream is = socket.getInputStream();
-                InputStreamReader isr = new InputStreamReader(is);
-                BufferedReader br = new BufferedReader(isr);
-                String message = br.readLine();
-                SecretKey originalKey = new SecretKeySpec(this.symmetricKey.getEncoded(), 0, this.symmetricKey.getEncoded().length, "AES");
-                Object obj = DataMethodHelper.deserialize(DataMethodHelper.decompress(decrypt(message.toString().getBytes(), originalKey)));
-                Class objClass = obj.getClass();
+    public static byte[] decrypt(byte[] dataBytes, SecretKey secretKey)
+            throws Exception {
+        byte[] encryptedTextByte = Base64.decodeBase64(dataBytes);
+        cipher.init(Cipher.DECRYPT_MODE, secretKey);
+        byte[] decryptedByte = cipher.doFinal(encryptedTextByte);
+        return decryptedByte;
+    }
 
-                //sessionFactory = HibernateUtil.getSessionFactory();
-                session = null;//sessionFactory.openSession();
-                //Transaction tx = session.beginTransaction();
-                switch (objClass.toString()) {
+    private void launchSocketsServer() throws NoSuchAlgorithmException, NoSuchPaddingException {
+        //cipher = Cipher.getInstance("AES");
+        //this.symmetricKey = new SecretKeySpec(Base64.decodeBase64("Sct1EfmbT4ILo/CmKD5A1g=="), 0, Base64.decodeBase64("Sct1EfmbT4ILo/CmKD5A1g==").length, "AES");
+        //SecretKey originalKey = new SecretKeySpec(this.symmetricKey.getEncoded(), 0, this.symmetricKey.getEncoded().length, "AES");
+        ServerSocket serverSocket;
+        Socket socket = null;
+        SessionFactory sessionFactory;
+        Session session = null;
+        ObjectInputStream inStream;
+        try {
+            sessionFactory = HibernateUtil.getSessionFactory();
+            serverSocket = new ServerSocket(2004, 10);
+            while (true) {
+                socket = serverSocket.accept();
+
+                inStream = new ObjectInputStream(socket.getInputStream());
+
+                ArrayList list = (ArrayList) inStream.readObject();
+                System.out.println("Object from sockets received: " + list);
+
+                ArrayList decrypted = new ArrayList();
+                for (Object obj : list) {
+                    Object o = DataMethodHelper.deserialize(DataMethodHelper.decompress(decrypt(obj.toString().getBytes(), this.symmetricKey)));
+                    decrypted.add(o);
+                }
+                String objClass = decrypted.get(0).getClass().toString().replace("class com.springapp.entities.", "");
+                session = sessionFactory.openSession();
+                Transaction tx = session.beginTransaction();
+                switch (objClass) {
                     case "Students":
-                        Students student = (Students) obj;
-                        session.save(student);
+                        for (Object obj : decrypted) {
+                            Students student = (Students) obj;
+                            System.out.println("Student found!");
+                            session.save(student);
+                        }
                         break;
                     case "StudentsAndClasses":
-                        StudentsAndClasses studentAndClass = (StudentsAndClasses) obj;
-                        session.save(studentAndClass);
+                        for (Object obj : decrypted) {
+                            StudentsAndClasses studentAndClass = (StudentsAndClasses) obj;
+                            System.out.println("StudentAndClass found!");
+                            session.save(studentAndClass);
+                        }
                         break;
                     case "Classes":
-                        Classes studentsClass = (Classes) obj;
-                        session.save(studentsClass);
+                        for (Object obj : decrypted) {
+                            Classes studentsClass = (Classes) obj;
+                            System.out.println("Class found!");
+                            session.save(studentsClass);
+                        }
                         break;
                     case "Results":
-                        Results result = (Results) obj;
-                        session.save(result);
+                        for (Object obj : decrypted) {
+                            Results result = (Results) obj;
+                            System.out.println("Result found!");
+                            session.save(result);
+                        }
                         break;
                     case "Assignments":
-                        Assignments assignment = (Assignments) obj;
-                        session.save(assignment);
+                        for (Object obj : decrypted) {
+                            Assignments assignment = (Assignments) obj;
+                            System.out.println("Assignment found!");
+                            session.save(assignment);
+                        }
                         break;
                     case "Departments":
-                        Departments department = (Departments) obj;
-                        session.save(department);
+                        for (Object obj : decrypted) {
+                            Departments department = (Departments) obj;
+                            System.out.println("Department found!");
+                            session.save(department);
+                        }
                         break;
                     case "Instructors":
-                        Instructors instructor = (Instructors) obj;
-                        session.save(instructor);
+                        for (Object obj : decrypted) {
+                            Instructors instructor = (Instructors) obj;
+                            System.out.println("Instructor found!");
+                            session.save(instructor);
+                        }
                         break;
                 }
-                //tx.commit();
-                System.out.println("Message received from client is: " + message);
+                tx.commit();
+                session.close();
+                socket.close();
             }
         } catch (Exception e) {
             e.printStackTrace();
@@ -469,49 +490,16 @@ public class MainForm extends javax.swing.JFrame {
                 if (session != null) {
                     session.close();
                 }
-            } catch (Exception e) {
+            } catch (IOException | HibernateException e) {
             }
         }
-        /*try {
-         providerSocket = new ServerSocket(2004, 10);
-         System.out.println("Waiting for connection");
-         connection = providerSocket.accept();
-         System.out.println("Connection received from " + connection.getInetAddress().getHostName());
-         out = new ObjectOutputStream(connection.getOutputStream());
-         out.flush();
-         in = new ObjectInputStream(connection.getInputStream());
-
-         out.writeObject("Connection successful");
-         out.flush();
-         System.out.println("server>" + "Connection successful");
-         do {
-         try {
-         message = (String) in.readObject();
-         System.out.println("client>" + message);
-         if (message.equals("bye")) {
-         out.writeObject("bye");
-         out.flush();
-         System.out.println("server>" + "bye");
-         }
-         } catch (ClassNotFoundException ex) {
-         System.err.println("Data received in unknown format");
-         }
-         } while (!message.equals("bye"));
-         } catch (IOException ioException) {
-         ioException.printStackTrace();
-         } finally {
-         try {
-         in.close();
-         out.close();
-         providerSocket.close();
-         } catch (IOException ioException) {
-         ioException.printStackTrace();
-         }
-         }*/
     }
 
-    private void launchMQServer() {
-        SessionFactory sessionFactory = null;
+    private void launchMQServer() throws NoSuchAlgorithmException, NoSuchPaddingException {
+        //cipher = Cipher.getInstance("AES");
+        //this.symmetricKey = new SecretKeySpec(Base64.decodeBase64("Sct1EfmbT4ILo/CmKD5A1g=="), 0, Base64.decodeBase64("Sct1EfmbT4ILo/CmKD5A1g==").length, "AES");
+        //SecretKey originalKey = new SecretKeySpec(this.symmetricKey.getEncoded(), 0, this.symmetricKey.getEncoded().length, "AES");
+        SessionFactory sessionFactory;
         Session session = null;
         try {
             Properties props = new Properties();
@@ -528,13 +516,12 @@ public class MainForm extends javax.swing.JFrame {
             QueueSession ses = con.createQueueSession(false, javax.jms.Session.AUTO_ACKNOWLEDGE);
             Queue t = (Queue) ctx.lookup("dataQueue");
             QueueReceiver receiver = ses.createReceiver(t);
-            //sessionFactory = HibernateUtil.getSessionFactory();
-            session = null;//sessionFactory.openSession();
-            MyListener listener = new MyListener(this.symmetricKey.getEncoded(), session);
+            sessionFactory = HibernateUtil.getSessionFactory();
+            MyListener listener = new MyListener(this.symmetricKey, sessionFactory);
             receiver.setMessageListener(listener);
 
             System.out.println("Data receiver is ready, waiting for messages...");
-        } catch (Exception e) {
+        } catch (JMSException | NamingException e) {
             System.out.println(e);
         } finally {
             if (session != null) {

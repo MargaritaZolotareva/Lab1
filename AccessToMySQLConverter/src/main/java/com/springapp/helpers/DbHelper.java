@@ -18,7 +18,7 @@ import java.sql.Statement;
 public class DbHelper {
 
     public static ResultSet fetchDataFromDB() throws SQLException {
-        Connection conn = DriverManager.getConnection("jdbc:ucanaccess://C:/Users/user/Desktop/Students.accdb");
+        Connection conn = DriverManager.getConnection("jdbc:ucanaccess://C:/Users/Margarita/Desktop/Students.accdb");
         Statement s = conn.createStatement();
         ResultSet rs = s.executeQuery("SELECT * FROM Denormalized");
         return rs;

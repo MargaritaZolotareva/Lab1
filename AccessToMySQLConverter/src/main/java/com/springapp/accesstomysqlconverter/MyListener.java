@@ -18,8 +18,11 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.crypto.Cipher;
 import javax.crypto.SecretKey;
-import javax.crypto.spec.SecretKeySpec;
-import javax.jms.*;
+import javax.jms.JMSException;
+import javax.jms.Message;
+import javax.jms.MessageListener;
+import javax.jms.TextMessage;
+import org.apache.commons.codec.binary.Base64;
 import org.hibernate.Transaction;
 
 /**
@@ -28,53 +31,61 @@ import org.hibernate.Transaction;
  */
 public class MyListener implements MessageListener {
 
-    private byte[] key;
-    org.hibernate.Session session;
+    private final SecretKey symmetricKey;
+    org.hibernate.SessionFactory sessionFactory;
 
-    public MyListener(byte[] key, org.hibernate.Session session) {
-        this.key = key;
-        this.session = session;
+    public MyListener(SecretKey symmetricKey, org.hibernate.SessionFactory sessionFactory) {
+        this.symmetricKey = symmetricKey;
+        this.sessionFactory = sessionFactory;
     }
 
+    @Override
     public void onMessage(Message m) {
         try {
             TextMessage msg = (TextMessage) m;
-            SecretKey originalKey = new SecretKeySpec(key, 0, key.length, "AES");
-            Object obj = DataMethodHelper.deserialize(DataMethodHelper.decompress(decrypt(m.toString().getBytes(), originalKey)));
-            Class objClass = obj.getClass();
+            Object obj = DataMethodHelper.deserialize(DataMethodHelper.decompress(decrypt(msg.getText().getBytes(), this.symmetricKey)));
+            String objClass = obj.getClass().toString().replace("class com.springapp.entities.", "");
+            org.hibernate.Session session = sessionFactory.openSession();
             Transaction tx = session.beginTransaction();
-            switch (objClass.toString()) {
+            switch (objClass) {
                 case "Students":
                     Students student = (Students) obj;
+                    System.out.println("Student found!");
                     session.save(student);
                     break;
                 case "StudentsAndClasses":
                     StudentsAndClasses studentAndClass = (StudentsAndClasses) obj;
+                    System.out.println("StudentAndClass found!");
                     session.save(studentAndClass);
                     break;
                 case "Classes":
                     Classes studentsClass = (Classes) obj;
+                    System.out.println("Class found!");
                     session.save(studentsClass);
                     break;
                 case "Results":
                     Results result = (Results) obj;
+                    System.out.println("Result found!");
                     session.save(result);
                     break;
                 case "Assignments":
                     Assignments assignment = (Assignments) obj;
+                    System.out.println("Assignment found!");
                     session.save(assignment);
                     break;
                 case "Departments":
                     Departments department = (Departments) obj;
+                    System.out.println("Department found!");
                     session.save(department);
                     break;
                 case "Instructors":
                     Instructors instructor = (Instructors) obj;
+                    System.out.println("Instructor found!");
                     session.save(instructor);
                     break;
             }
-
             tx.commit();
+            session.close();
             System.out.println("following message is received:" + msg.getText());
         } catch (JMSException e) {
             System.out.println(e);
@@ -82,11 +93,10 @@ public class MyListener implements MessageListener {
             Logger.getLogger(MyListener.class.getName()).log(Level.SEVERE, null, ex);
         }
     }
-    
+
     public static byte[] decrypt(byte[] dataBytes, SecretKey secretKey)
             throws Exception {
-        java.util.Base64.Decoder decoder = java.util.Base64.getDecoder();
-        byte[] encryptedTextByte = decoder.decode(dataBytes);
+        byte[] encryptedTextByte = Base64.decodeBase64(dataBytes);
         cipher.init(Cipher.DECRYPT_MODE, secretKey);
         byte[] decryptedByte = cipher.doFinal(encryptedTextByte);
         return decryptedByte;
